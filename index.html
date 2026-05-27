@@ -294,27 +294,37 @@ html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:v
   outline:1.5px dashed rgba(108,99,255,0.55);
   background:rgba(108,99,255,0.04);
 }
-/* When actively editing: show text in its real color, highlight the box */
+/* When actively editing: reveal text, use subtle highlight — NO opaque white bg */
+/* ── Active editing box ──
+   IMPORTANT: we do NOT set color here at all.
+   Color is forced directly via inline style in JS (activateBox)
+   so it always matches the stored origColor — never inherits
+   the app's white --text variable. */
 .txt-box[contenteditable="true"]{
-  color:unset !important;          /* reveal real text color */
-  caret-color:var(--accent2);      /* visible cursor */
+  /* color: set by JS inline — do NOT override here */
+  caret-color:#6c63ff;
   white-space:pre-wrap;
-  outline:2px solid var(--accent);
-  background:rgba(255,255,255,0.92); /* white bg so edited text is clearly readable */
+  outline:none;
+  background:rgba(108,99,255,0.07);
+  border-bottom:2.5px solid #a78bfa;
   z-index:20;
-  border-radius:3px;
-  box-shadow:0 2px 16px rgba(108,99,255,0.25);
+  border-radius:2px 2px 0 0;
+  box-shadow:0 2px 0 0 #6c63ff;
 }
 .txt-box[contenteditable="true"]:focus{
-  outline:2px solid var(--accent2);
+  background:rgba(108,99,255,0.10);
+  box-shadow:0 2px 0 0 #a78bfa;
 }
-/* New text boxes (user-added) are always visible since there's nothing under them */
+/* New boxes — black text on white, always readable */
 .txt-box[data-is-new="1"]{
-  color:inherit !important;
-  caret-color:auto;
+  /* color set by JS */
+  caret-color:#000;
 }
 .txt-box[data-is-new="1"][contenteditable="true"]{
-  background:rgba(255,255,255,0.92);
+  background:rgba(255,255,255,0.96);
+  border:1.5px solid #6c63ff;
+  border-radius:3px;
+  box-shadow:0 2px 12px rgba(108,99,255,0.2);
 }
 
 /* ── FORMAT BAR (floating) ── */
@@ -378,7 +388,7 @@ html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:v
   position:fixed;inset:0;background:rgba(13,13,15,0.9);
   display:none;align-items:center;justify-content:center;
   flex-direction:column;gap:1rem;z-index:300;
-  backdrop-filter:blur(4px);
+  backdrop-filter:blur_disabled(4px);
 }
 #loader.show{display:flex;}
 .loader-ring{
@@ -428,119 +438,332 @@ html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:v
 /* add text cursor */
 #canvasArea.add-text-mode{cursor:crosshair;}
 
-/* ══════════════════════════════════════
-   RESPONSIVE — ALL DEVICES
-══════════════════════════════════════ */
+/* ══════════════════════════════════════════════════
+   RESPONSIVE — DESKTOP · TABLET · MOBILE · TOUCH
+══════════════════════════════════════════════════ */
 
-/* ── Tablet ≤ 900px ── */
+/* ── Large desktop ≥ 1280px ── */
+@media(min-width:1280px){
+  #sidebar{ width:240px; }
+  #propPanel.open{ width:220px; }
+  .tb-btn{ font-size:13px; }
+}
+
+/* ── Tablet 768–1024px ── */
+@media(max-width:1024px){
+  #sidebar{ width:180px; }
+  #propPanel.open{ width:175px; }
+  .tb-filename{ max-width:130px; }
+}
+
+/* ── Tablet portrait ≤ 900px ── */
 @media(max-width:900px){
-  #sidebar{ width:0; }
-  #sidebar.mobile-open{ width:200px; }
-  #propPanel.open{ width:180px; }
-  .tb-filename{ max-width:120px; }
+  #sidebar{
+    position:fixed;
+    top:52px; left:0; bottom:26px;
+    width:0; z-index:81;
+    transition:width 0.28s cubic-bezier(0.4,0,0.2,1);
+    box-shadow:4px 0 32px rgba(0,0,0,0.55);
+  }
+  #sidebar.mobile-open{ width:210px; }
+  #propPanel{ width:0 !important; }
+  #propPanel.open{
+    position:fixed;
+    bottom:26px; left:0; right:0;
+    width:100% !important; height:0;
+    max-height:55vh; z-index:81;
+    border-left:none;
+    border-top:1px solid var(--border);
+    border-radius:20px 20px 0 0;
+    transition:height 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow-y:auto;
+  }
+  #propPanel.open{ height:260px; }
+  .pp-body{
+    flex-direction:row; flex-wrap:wrap; gap:10px; padding:12px;
+    align-items:flex-start;
+  }
+  .pp-body > div{ min-width:140px; flex:1; }
+  .pp-body hr{ display:none; }
+  .pp-hint{ display:none; }
   .tb-sep{ display:none; }
-  #topbar{ gap:4px; padding:0 8px; }
+  #topbar{ gap:4px; padding:0 10px; }
+  .tb-filename{ max-width:110px; }
 }
 
 /* ── Mobile ≤ 640px ── */
 @media(max-width:640px){
-  /* Topbar: logo + spacer + icon-only buttons */
+  /* ── Topbar ── */
   #topbar{
-    height:48px;
-    padding:0 8px;
-    gap:3px;
-    overflow:hidden;
+    height:50px;
+    padding:0 6px;
+    gap:2px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
   }
-  .tb-logo{ font-size:0.82rem; margin-right:2px; }
+  #topbar::-webkit-scrollbar{ display:none; }
+  .tb-logo{ font-size:0.78rem; margin-right:0; white-space:nowrap; flex-shrink:0; }
   .tb-filename{ display:none; }
   .tb-sep{ display:none; }
-  /* Hide text labels on all buttons — icons only */
+  .tb-spacer{ min-width:4px; flex:1; }
+
+  /* Icon-only buttons */
   .tb-btn span{ display:none !important; }
-  .tb-btn{ padding:0; width:34px; height:34px; justify-content:center; }
-  .zoom-val{ width:36px; font-size:10px; }
-  .zoom-btn{ width:26px; height:26px; }
-  /* Sidebar: hidden by default, slide in as overlay */
+  .tb-btn{
+    padding:0 !important;
+    width:36px; height:36px;
+    flex-shrink:0;
+    justify-content:center;
+    border-radius:8px;
+  }
+  .tb-btn svg{ width:16px; height:16px; }
+
+  /* Zoom */
+  .zoom-ctrl{ border-radius:8px; }
+  .zoom-val{ width:34px; font-size:10px; }
+  .zoom-btn{ width:28px; height:28px; font-size:1rem; }
+  .tb-btn[onclick="fitToWidth()"]{
+    width:36px; height:36px; flex-shrink:0;
+  }
+
+  /* ── Sidebar ── */
   #sidebar{
-    position:fixed; top:48px; left:0; bottom:26px;
-    width:0; z-index:80;
-    box-shadow:4px 0 24px rgba(0,0,0,0.5);
+    position:fixed;
+    top:50px; left:0; bottom:26px;
+    width:0; z-index:81;
+    transition:width 0.28s cubic-bezier(0.4,0,0.2,1);
+    box-shadow:4px 0 32px rgba(0,0,0,0.55);
   }
-  #sidebar.mobile-open{ width:180px; }
-  /* Right panel: slide up from bottom as sheet */
-  #propPanel{
-    position:fixed; bottom:26px; left:0; right:0;
-    width:100% !important;
-    height:0; max-height:60vh;
-    overflow:hidden; z-index:80;
-    border-left:none;
-    border-top:1px solid var(--border);
-    border-radius:16px 16px 0 0;
-    transition:height 0.3s ease;
-  }
-  #propPanel.open{ width:100% !important; height:240px; }
+  #sidebar.mobile-open{ width:190px; }
+  .sb-header{ padding:8px 10px; font-size:9px; }
+  .sb-pages{ padding:6px; }
+
+  /* ── Right panel — bottom sheet ── */
+  #propPanel.open{ height:220px; border-radius:16px 16px 0 0; }
   .pp-body{ flex-direction:row; flex-wrap:wrap; gap:8px; padding:10px; }
   .pp-body > div{ min-width:120px; flex:1; }
-  /* Canvas area: full width, adjusted padding */
-  #canvasArea{ padding:12px 8px 70px; }
-  /* Format bar: full width at bottom above statusbar */
+  .pp-body hr,.pp-hint{ display:none; }
+  .pp-head{ padding:8px 12px; font-size:9px; }
+
+  /* ── Canvas area ── */
+  #canvasArea{
+    padding:10px 6px 80px;
+  }
+
+  /* ── Format bar — pinned bottom bar on mobile ── */
   #fmtBar{
     position:fixed !important;
     top:auto !important;
     bottom:30px !important;
-    left:8px !important; right:8px !important;
+    left:6px !important;
+    right:6px !important;
     width:auto !important;
     max-width:100% !important;
-    border-radius:12px;
+    border-radius:14px;
     justify-content:center;
-    padding:8px 10px;
+    padding:8px 8px;
+    gap:3px;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
   }
-  /* Status bar: smaller */
+  #fmtBar::-webkit-scrollbar{ display:none; }
+  .fmt-btn{ width:34px; height:34px; font-size:14px; flex-shrink:0; }
+  .fmt-sep{ height:18px; flex-shrink:0; }
+  #fmtSize{ width:40px; font-size:11px; }
+  #fmtColor{ width:30px; height:28px; }
+
+  /* ── Status bar ── */
   #statusbar{ padding:0 8px; gap:8px; font-size:10px; }
-  .sb-item:nth-child(3),
+  .sb-item:nth-child(3){ display:none; }
   .sb-item:nth-child(4){ display:none; }
-  /* Toast: full width */
-  #toast{ left:12px; right:12px; transform:translateY(20px); white-space:normal; text-align:center; }
-  #toast.show{ transform:translateY(0); }
-  /* Landing page */
-  .land-content{ padding:1.2rem; }
-  .land-title{ font-size:clamp(2rem,10vw,3.5rem); }
+
+  /* ── Toast ── */
+  #toast{
+    left:10px; right:10px;
+    transform:translateX(0) translateY(20px);
+    white-space:normal;
+    text-align:center;
+    font-size:12px;
+  }
+  #toast.show{ transform:translateX(0) translateY(0); }
+
+  /* ── Landing ── */
+  .land-content{ padding:1rem 1rem; max-width:100%; }
+  .land-title{ font-size:clamp(1.8rem,9vw,3rem); }
+  .land-sub{ font-size:0.85rem; margin-bottom:1.5rem; }
+  .land-badge{ font-size:10px; padding:4px 12px; }
   .drop-zone{ padding:1.5rem 1rem; }
-  .land-features{ gap:0.6rem; }
-  .feat{ font-size:11px; }
+  .drop-icon{ font-size:2rem; }
+  .drop-title{ font-size:0.95rem; }
+  .drop-sub{ font-size:0.8rem; }
+  .drop-btn{ padding:0.6rem 1.4rem; font-size:0.85rem; margin-top:0.8rem; }
+  .land-features{ gap:0.5rem; }
+  .feat{ font-size:10px; }
+
+  /* ── Loader ── */
+  .loader-ring{ width:36px; height:36px; border-width:2.5px; }
+  .loader-txt{ font-size:12px; }
 }
 
-/* ── Small mobile ≤ 380px ── */
-@media(max-width:380px){
-  .land-title{ font-size:2rem; }
-  .land-sub{ font-size:0.82rem; }
-  #topbar{ gap:2px; padding:0 5px; }
-  .tb-btn{ width:30px; height:30px; }
+/* ── Small mobile ≤ 400px ── */
+@media(max-width:400px){
+  .land-title{ font-size:1.8rem; }
+  .land-sub{ font-size:0.8rem; }
+  #topbar{ gap:1px; padding:0 4px; }
+  .tb-btn{ width:32px; height:32px; }
+  .tb-btn svg{ width:14px; height:14px; }
+  .zoom-val{ width:30px; font-size:9px; }
+  .zoom-btn{ width:26px; height:26px; }
+  .fmt-btn{ width:30px; height:30px; font-size:13px; }
+  #fmtSize{ width:36px; }
+  .land-features{ flex-direction:column; align-items:center; }
+  .land-content{ padding:0.8rem; }
+}
+
+/* ── Very small ≤ 320px ── */
+@media(max-width:320px){
+  .tb-logo{ display:none; }
   .zoom-ctrl{ display:none; }
+  .tb-btn{ width:30px; height:30px; }
 }
 
-/* ── Touch: make text boxes easier to tap on mobile ── */
+/* ══════════════════════════════
+   TOUCH DEVICES (pointer:coarse)
+══════════════════════════════ */
 @media(hover:none) and (pointer:coarse){
+  /* Larger tap targets for text boxes */
   .txt-box{
-    /* Bigger touch target without changing visual size */
-    padding:4px 2px;
-    margin:-4px -2px;
+    padding:6px 3px;
+    margin:-6px -3px;
   }
   .txt-box:hover{
-    outline:2px dashed rgba(108,99,255,0.6);
+    outline:2px dashed rgba(108,99,255,0.65);
     background:rgba(108,99,255,0.06);
   }
-  .fmt-btn{ width:36px; height:36px; font-size:15px; }
-  .zoom-btn{ width:32px; height:32px; }
-  .drop-btn{ padding:0.8rem 2rem; font-size:1rem; }
+  /* Bigger toolbar controls */
+  .fmt-btn{ width:38px; height:38px; font-size:16px; }
+  .zoom-btn{ width:34px; height:34px; font-size:1.1rem; }
+  .drop-btn{ padding:0.85rem 2rem; font-size:1rem; }
+  .tb-btn{ min-width:36px; }
+  /* Thumbnail items easier to tap */
+  .thumb-item{ margin-bottom:8px; }
+  /* prop panel inputs bigger */
+  .pp-input{ height:34px; font-size:13px; }
+  .pp-select{ height:34px; font-size:13px; }
+  .pp-color{ width:34px; height:34px; }
 }
 
-/* ── Landscape phone ── */
-@media(max-width:768px) and (orientation:landscape){
-  #topbar{ height:40px; }
-  #canvasArea{ padding:8px 8px 50px; }
-  #propPanel.open{ height:180px; }
-  #statusbar{ height:22px; }
+/* ══════════════════════════════
+   LANDSCAPE PHONE
+══════════════════════════════ */
+@media(max-width:900px) and (orientation:landscape){
+  #topbar{ height:42px; }
+  .tb-btn{ height:32px; }
+  .zoom-btn{ height:26px; }
+  #canvasArea{ padding:6px 8px 44px; }
+  #statusbar{ height:22px; font-size:10px; }
+  #sidebar{ top:42px; bottom:22px; }
+  #propPanel.open{ height:160px; border-radius:14px 14px 0 0; }
+  .land-title{ font-size:clamp(1.4rem,6vw,2.2rem); }
+  .land-sub{ font-size:0.8rem; margin-bottom:1rem; }
+  .drop-zone{ padding:1rem; }
+  #fmtBar{ bottom:26px !important; }
 }
+
+/* ══════════════════════════════
+   HIGH DPI / RETINA
+══════════════════════════════ */
+@media(-webkit-min-device-pixel-ratio:2),(min-resolution:192dpi){
+  .tb-logo{ letter-spacing:0.04em; }
+}
+
+/* ══════════════════════════════
+   MOBILE BOTTOM NAV BAR
+══════════════════════════════ */
+#mobileNav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  height:56px;z-index:90;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  flex-direction:row;align-items:center;justify-content:space-around;
+  padding:0 4px;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.4);
+}
+.mnav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;
+  height:52px;border:none;background:transparent;
+  color:var(--muted);cursor:pointer;
+  font-family:'Syne',sans-serif;font-size:9px;font-weight:600;
+  letter-spacing:0.04em;text-transform:uppercase;
+  border-radius:10px;transition:all 0.15s;
+}
+.mnav-btn:hover,.mnav-btn:active{ color:var(--accent2);background:rgba(108,99,255,0.08); }
+.mnav-btn.active{ color:var(--accent2); }
+.mnav-center{
+  color:#fff !important;
+  background:linear-gradient(135deg,var(--accent),#5a50e0) !important;
+  border-radius:14px;
+  width:48px;flex:0 0 48px;
+  height:44px;margin:0 4px;
+  box-shadow:0 4px 16px rgba(108,99,255,0.4);
+}
+.mnav-center.active{ background:linear-gradient(135deg,var(--green),#10a070) !important; }
+.mnav-dl{ color:var(--green) !important; }
+@media(max-width:640px){
+  #mobileNav{ display:flex; }
+  #statusbar{ display:none; }
+  /* Canvas clears the bottom nav */
+  #canvasArea{ padding-bottom:66px !important; }
+  /* Sidebar bottom above nav */
+  #sidebar{ bottom:56px !important; }
+
+  /* ── Format bar: slim floating strip just above bottom nav ── */
+  #fmtBar{
+    bottom:62px !important;
+    left:6px !important; right:6px !important;
+    top:auto !important;
+    padding:5px 8px !important;
+    gap:2px !important;
+    max-height:44px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    border-radius:12px !important;
+    box-shadow:0 -2px 20px rgba(0,0,0,0.4);
+  }
+  #fmtBar::-webkit-scrollbar{ display:none; }
+  .fmt-btn{ width:32px !important; height:32px !important; font-size:13px !important; flex-shrink:0; }
+  .fmt-sep{ height:16px !important; flex-shrink:0; }
+  #fmtSize{ width:38px !important; height:28px !important; font-size:11px !important; }
+  #fmtColor{ width:28px !important; height:28px !important; }
+
+  /* ── Properties panel: never auto-open on mobile — only when user taps ── */
+  #propPanel.open{
+    height:0 !important;   /* collapsed by default on mobile */
+    pointer-events:none;
+  }
+  /* propPanel opened explicitly via prop button */
+  #propPanel.open.mobile-show{
+    height:240px !important;
+    pointer-events:all;
+    bottom:56px;
+  }
+}
+@media(max-width:640px) and (orientation:landscape){
+  #mobileNav{ height:44px; }
+  .mnav-btn{ height:40px; font-size:8px; }
+  .mnav-center{ height:36px; }
+  #canvasArea{ padding-bottom:54px !important; }
+  #fmtBar{ bottom:50px !important; max-height:40px; }
+  #sidebar{ bottom:44px !important; }
+}
+
 </style>
 </head>
 <body>
@@ -573,8 +796,8 @@ html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:v
 
 <!-- ══ SIDEBAR BACKDROP ══ -->
 <div id="sidebarBackdrop" onclick="closeSidebar()" style="
-  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
-  z-index:79;backdrop-filter:blur(2px);
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);
+  z-index:79;
 "></div>
 
 <!-- ══ LANDING ══ -->
@@ -721,6 +944,30 @@ html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:v
     <div class="sb-item"><span id="sbPage">Page 1</span></div>
     <div class="sb-item"><span id="sbEdits">0 edits</span></div>
     <div class="sb-item" style="margin-left:auto;"><span id="sbSize"></span></div>
+  </div>
+
+  <!-- MOBILE BOTTOM NAV (visible ≤640px only) -->
+  <div id="mobileNav">
+    <button class="mnav-btn" onclick="toggleSidebar()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><rect y="1" width="5" height="16" rx="1.5" opacity="0.5"/><rect x="8" y="1" width="10" height="3" rx="1"/><rect x="8" y="7.5" width="10" height="3" rx="1"/><rect x="8" y="14" width="10" height="3" rx="1"/></svg>
+      <span>Pages</span>
+    </button>
+    <button class="mnav-btn" onclick="toggleHighlight()" id="mnavHL">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><rect x="1" y="4" width="16" height="2.5" rx="1"/><rect x="1" y="8" width="13" height="2.5" rx="1"/><rect x="1" y="12" width="16" height="2.5" rx="1"/></svg>
+      <span>Blocks</span>
+    </button>
+    <button class="mnav-btn mnav-center" onclick="toggleAddText()" id="mnavAdd">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4h14v2H12v10H8V6H3z"/></svg>
+      <span>Add Text</span>
+    </button>
+    <button class="mnav-btn" onclick="fitToWidth()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 9h16M13 5l4 4-4 4M5 5l-4 4 4 4"/></svg>
+      <span>Fit</span>
+    </button>
+    <button class="mnav-btn mnav-dl" onclick="downloadPDF()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 2v10M6 9l3 4 3-4M2 14h14"/></svg>
+      <span>Save</span>
+    </button>
   </div>
 
 </div><!-- /app -->
@@ -974,28 +1221,49 @@ function activateBox(box){
   if(activeBox && activeBox !== box) deactivateBox(activeBox);
   activeBox = box;
   box.contentEditable = 'true';
-  // CSS [contenteditable="true"] handles all visual states — no class needed
+
+  // ── CRITICAL: Force the real text color as an inline style ──
+  // CSS `color:unset` or `color:inherit` would walk up to the app shell
+  // which has --text:#e8e8f0 (near-white), making text invisible on white PDFs.
+  // We instead read the stored origColor (captured at render time from the PDF)
+  // and set it directly on the element so it overrides everything.
+  const realColor = box.dataset.origColor || box.style.color || '#000000';
+  box.style.color = realColor;
+  // Store it back so it survives focus/blur cycles
+  box.dataset.origColor = realColor;
+
   box.focus();
   updateFmtBar(box);
   showFmtBar(box);
   syncPropPanel(box);
-  const pp = document.getElementById('propPanel');
-  pp.classList.add('open');
-  // On mobile show backdrop if panel is bottom sheet
+
+  // On DESKTOP open the properties panel
+  // On MOBILE — do NOT open it (it blurs/covers the page).
+  if(window.innerWidth > 900){
+    document.getElementById('propPanel').classList.add('open');
+  }
+
+  // On mobile, scroll the box into view above keyboard + format bar
   if(window.innerWidth <= 640){
-    document.getElementById('sidebarBackdrop').style.display = 'block';
-    document.getElementById('sidebarBackdrop').onclick = ()=>{
-      pp.classList.remove('open');
-      document.getElementById('sidebarBackdrop').style.display='none';
-      document.getElementById('sidebarBackdrop').onclick = ()=>closeSidebar();
-    };
+    setTimeout(()=>{
+      const area    = document.getElementById('canvasArea');
+      const boxRect = box.getBoundingClientRect();
+      const fmtBarH = 60;
+      const navH    = 60;
+      const topbarH = 50;
+      const viewH   = window.innerHeight - topbarH - fmtBarH - navH;
+      if(boxRect.bottom > window.innerHeight - fmtBarH - navH ||
+         boxRect.top < topbarH){
+        const scrollTarget = area.scrollTop + boxRect.top - topbarH - viewH * 0.35;
+        area.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+      }
+    }, 80);
   }
 }
 
 function deactivateBox(box){
   if(!box) return;
   box.contentEditable = 'false';
-  // CSS removes the editing styles automatically via [contenteditable="true"] selector
   hideFmtBar();
   if(activeBox === box) activeBox = null;
 }
@@ -1011,11 +1279,18 @@ function deleteActiveBox(){
 // ── FORMAT BAR ──
 function showFmtBar(box){
   const fb = document.getElementById('fmtBar');
-  const rect = box.getBoundingClientRect();
-  let top = rect.top - 52;
-  if(top < 60) top = rect.bottom + 8;
-  fb.style.top = top+'px';
-  fb.style.left = Math.max(8, rect.left)+'px';
+  if(window.innerWidth <= 640){
+    // On mobile CSS already pins it to bottom — just show it, no position override
+    fb.style.top = '';
+    fb.style.left = '';
+  } else {
+    const rect = box.getBoundingClientRect();
+    let top = rect.top - 52;
+    if(top < 60) top = rect.bottom + 8;
+    const maxLeft = window.innerWidth - 440;
+    fb.style.top  = top + 'px';
+    fb.style.left = Math.min(maxLeft, Math.max(8, rect.left)) + 'px';
+  }
   fb.classList.add('show');
 }
 function hideFmtBar(){ document.getElementById('fmtBar').classList.remove('show'); }
@@ -1184,18 +1459,19 @@ function toggleAddText(){
 function toggleSidebar(){
   const sb = document.getElementById('sidebar');
   const bd = document.getElementById('sidebarBackdrop');
-  const isMobile = window.innerWidth <= 640;
+  const isMobile = window.innerWidth <= 900;
   if(isMobile){
     const isOpen = sb.classList.contains('mobile-open');
     sb.classList.toggle('mobile-open', !isOpen);
-    bd.style.display = isOpen ? 'none' : 'block';
+    if(bd) bd.style.display = isOpen ? 'none' : 'block';
   } else {
     sb.classList.toggle('collapsed');
   }
 }
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('mobile-open');
-  document.getElementById('sidebarBackdrop').style.display = 'none';
+  const bd = document.getElementById('sidebarBackdrop');
+  if(bd) bd.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════
@@ -1417,13 +1693,20 @@ function formatBytes(b){
 }
 
 // Re-fit on resize / orientation change
+let _resizeTimer;
 window.addEventListener('resize', ()=>{
-  if(document.querySelector('.page-wrap')) fitToWidth();
-  // Close sidebar overlay on resize to desktop
-  if(window.innerWidth > 640){
-    document.getElementById('sidebarBackdrop').style.display = 'none';
-    document.getElementById('sidebar').classList.remove('mobile-open');
-  }
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(()=>{
+    if(document.querySelector('.page-wrap')) fitToWidth();
+    if(window.innerWidth > 900){
+      const bd = document.getElementById('sidebarBackdrop');
+      if(bd) bd.style.display = 'none';
+      document.getElementById('sidebar').classList.remove('mobile-open');
+    }
+  }, 150);
+});
+window.addEventListener('orientationchange', ()=>{
+  setTimeout(()=>{ if(document.querySelector('.page-wrap')) fitToWidth(); }, 350);
 });
 
 // Global keyboard shortcuts
@@ -1438,19 +1721,22 @@ document.addEventListener('keydown', e=>{
     if(addTextMode) toggleAddText();
     if(activeBox) deactivateBox(activeBox);
     hideFmtBar();
+    closeSidebar();
   }
   if((e.key==='Delete'||e.key==='Backspace') && activeBox && document.activeElement===document.body){
     deleteActiveBox();
   }
 });
 
-// Click outside deactivates box
-document.getElementById('canvasArea')?.addEventListener('mousedown', e=>{
+// Click / touch outside deactivates box and hides format bar
+function handleOutsideTap(e){
   if(!e.target.closest('.txt-box') && !e.target.closest('#fmtBar')){
     if(activeBox) deactivateBox(activeBox);
     hideFmtBar();
   }
-});
+}
+document.getElementById('canvasArea')?.addEventListener('mousedown', handleOutsideTap);
+document.getElementById('canvasArea')?.addEventListener('touchstart', handleOutsideTap, {passive:true});
 </script>
 </body>
 </html>
